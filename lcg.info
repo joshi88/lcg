@@ -1,0 +1,13 @@
+name = Login cum Register
+description = Register and login form one form.
+package = Login Custom
+configure = admin/config/user-interface/lcg
+core = "7.x"
+
+
+
+version = "7.x-2.1"
+core = "7.x"
+project = "LCG"
+datestamp = "1405873428"
+
