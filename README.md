@@ -40,3 +40,41 @@ class CustomAjaxBlock extends BlockBase {
   }
 
 }
+
+
+ajax_loader:
+  version: 1.x
+  css:
+    theme:
+      css/ajax_loader.css: {}
+
+custom_ajax_block.ajax_data:
+  path: '/custom-ajax-data/{offset}/{limit}'
+  defaults:
+    _controller: '\Drupal\custom_ajax_block\Controller\CustomAjaxBlockController::getData'
+    _format: json
+  requirements:
+    _access: 'TRUE'
+
+
+
+<?php
+
+namespace Drupal\custom_ajax_block\Controller;
+
+use Drupal\Core\Controller\ControllerBase;
+use Symfony\Component\HttpFoundation\JsonResponse;
+
+/**
+ * Controller for custom AJAX block data.
+ */
+class CustomAjaxBlockController extends ControllerBase {
+
+  /**
+   * Returns the AJAX data.
+   */
+  public function getData($offset, $limit) {
+    // Add your custom logic to fetch the AJAX data here.
+    // $
+
+
