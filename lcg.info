@@ -1,3 +1,82 @@
+load_more:
+  js:
+    js/load-more.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupal.ajax
+
+(function ($, Drupal, drupalSettings) {
+  Drupal.behaviors.customAjaxBlockLoadMore = {
+    attach: function (context, settings) {
+      var offset = drupalSettings.ajax.customAjaxBlock.offset;
+      var limit = drupalSettings.ajax.customAjaxBlock.limit;
+      var totalItems = 0;
+      var hasMoreItems = true;
+
+      // Hide the "Load More" button if there are no more items to load.
+      if (offset + limit >= totalItems) {
+        $('#load-more-button').hide();
+      }
+
+      $('#load-more-button', context).once().click(function () {
+        if (!hasMoreItems) {
+          return;
+        }
+
+        var url = drupalSettings.ajax.customAjaxBlock.url;
+
+        $.ajax({
+          url: url,
+          type: 'GET',
+          dataType: 'json',
+          data: {
+            offset: offset + limit,
+            limit: limit,
+          },
+          beforeSend: function () {
+            // Show the AJAX loader.
+            $(drupalSettings.ajax.customAjaxBlock.selector).show();
+          },
+          success: function (response) {
+            // Hide the AJAX loader.
+            $(drupalSettings.ajax.customAjaxBlock.selector).hide();
+
+            if (response.success && response.data) {
+              var newData = response.data;
+
+              // Update the offset value.
+              offset += limit;
+
+              // Check if there are more items to load.
+              hasMoreItems = newData.length === limit;
+
+              // Append the new records to the list.
+              var records = '';
+              $.each(newData, function (index, record) {
+                records += '<li>' + record.name + '</li>';
+              });
+              $('ul').append(records);
+
+              // Hide the "Load More" button if there are no more items to load.
+              if (!hasMoreItems) {
+                $('#load-more-button').hide();
+              }
+            }
+          },
+          error: function () {
+            // Hide the AJAX loader.
+            $(drupalSettings.ajax.customAjaxBlock.selector).hide();
+            console.error('Error occurred during AJAX request.');
+          },
+        });
+      });
+    },
+  };
+})(jQuery, Drupal, drupalSettings);
+
+
+
+
 name = Login cum Register
 description = Register and login form one form.
 package = Login Custom
