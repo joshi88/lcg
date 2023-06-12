@@ -8,6 +8,52 @@ use Drupal\Core\Link;
 // ...
 
 public function build() {
+  $offset = \Drupal::state()->get('custom_offset_value', 0);
+  $limit = 5;
+
+  $query = $this->database->select('your_table_name', 't')
+    ->fields('t');
+
+  // Adjust the range if not the first page.
+  if ($offset > 0) {
+    $query->range($offset, $limit);
+  }
+  else {
+    $query->range($limit);
+  }
+
+  $result = $query->execute()->fetchAll();
+
+  $output = [
+    '#theme' => 'item_list',
+    '#items' => $result,
+  ];
+
+  // Add a "Load More" button using AJAX.
+  $offset += $limit;
+  $loadMoreLink = Link::createFromRoute($this->t('Load More'), 'custom_offset.load_more', [
+    'offset' => $offset,
+    'limit' => $limit,
+  ], ['attributes' => ['class' => 'load-more-button']]);
+  $output['load_more'] = [
+    '#markup' => $loadMoreLink->toString(),
+  ];
+
+  return $output;
+}
+
+
+
+use Drupal\Core\Ajax\AjaxResponse;
+use Drupal\Core\Ajax\HtmlCommand;
+use Drupal\Core\Block\BlockBase;
+use Drupal\Core\Database\Connection;
+use Symfony\Component\DependencyInjection\ContainerInterface;
+use Drupal\Core\Link;
+
+// ...
+
+public function build() {
   $offset = 0;
   $limit = 5;
 
