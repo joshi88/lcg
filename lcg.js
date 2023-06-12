@@ -8,6 +8,88 @@ use Drupal\Core\Link;
 // ...
 
 public function build() {
+  $offset = 0;
+  $limit = 5;
+
+  $query = $this->database->select('your_table_name', 't')
+    ->fields('t')
+    ->range($offset, $limit);
+
+  $result = $query->execute()->fetchAll();
+
+  $output = [
+    '#theme' => 'item_list',
+    '#items' => $result,
+  ];
+
+  // Add a wrapper div for the AJAX updates.
+  $output['#prefix'] = '<div id="custom-offset-wrapper">';
+  $output['#suffix'] = '</div>';
+
+  // Add a "Load More" button using AJAX.
+  $offset += $limit;
+  $loadMoreLink = Link::createFromRoute($this->t('Load More'), 'custom_offset.load_more', ['offset' => $offset], ['attributes' => ['class' => ['load-more-button']]]);
+
+  // Attach the library to the block.
+  $this->renderer->addCacheableDependency($output, $loadMoreLink);
+  $output['load_more'] = [
+    '#markup' => $loadMoreLink->toString(),
+    '#attached' => [
+      'library' => [
+        'custom_offset/custom_offset',
+      ],
+    ],
+  ];
+
+  return $output;
+}
+(function ($) {
+  Drupal.behaviors.customOffset = {
+    attach: function (context, settings) {
+      var offset = 5;
+      var limit = 5;
+
+      $('.load-more-button a', context).once('custom-offset').click(function (event) {
+        event.preventDefault();
+        var url = $(this).attr('href');
+
+        $.ajax({
+          url: url,
+          method: 'GET',
+          dataType: 'json',
+          success: function (data) {
+            if (data) {
+              var itemsHtml = '';
+              $.each(data, function (index, item) {
+                itemsHtml += '<li>' + item + '</li>';
+              });
+              $('.item-list', context).append(itemsHtml);
+
+              offset += limit;
+              var loadMoreUrl = Drupal.url('custom-offset/load-more/' + offset);
+              $('.load-more-button a', context).attr('href', loadMoreUrl);
+            }
+          }
+        });
+      });
+    }
+  };
+})(jQuery);
+
+
+
+
+
+use Drupal\Core\Ajax\AjaxResponse;
+use Drupal\Core\Ajax\HtmlCommand;
+use Drupal\Core\Block\BlockBase;
+use Drupal\Core\Database\Connection;
+use Symfony\Component\DependencyInjection\ContainerInterface;
+use Drupal\Core\Link;
+
+// ...
+
+public function build() {
   $offset = \Drupal::state()->get('custom_offset_value', 0);
   $limit = 5;
 
