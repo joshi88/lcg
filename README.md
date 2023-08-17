@@ -1,4 +1,84 @@
 import React, { useState } from 'react';
+
+const jsonData = [
+  {
+    "id": 1,
+    "name": "Record 1",
+    "category": "Category A",
+    "status": "Active"
+  },
+  {
+    "id": 2,
+    "name": "Record 2",
+    "category": "Category B",
+    "status": "Inactive"
+  },
+  // More records...
+];
+
+const RecordDisplay = () => {
+  const [selectedFilters, setSelectedFilters] = useState({
+    category: '',
+    status: '',
+    // Add more filter options here
+  });
+
+  const applyFilters = () => {
+    const filtered = jsonData.filter(record => {
+      return (
+        (!selectedFilters.category || record.category === selectedFilters.category) &&
+        (!selectedFilters.status || record.status === selectedFilters.status)
+        // Add more filter conditions here
+      );
+    });
+    return filtered;
+  };
+
+  const handleFilterChange = (filterName, value) => {
+    setSelectedFilters(prevFilters => ({
+      ...prevFilters,
+      [filterName]: value,
+    }));
+  };
+
+  const filteredRecords = applyFilters();
+
+  return (
+    <div>
+      {/* Render filter UI elements here */}
+      <select onChange={e => handleFilterChange('category', e.target.value)}>
+        <option value="">All Categories</option>
+        <option value="Category A">Category A</option>
+        <option value="Category B">Category B</option>
+        {/* Add more category options */}
+      </select>
+      <select onChange={e => handleFilterChange('status', e.target.value)}>
+        <option value="">All Statuses</option>
+        <option value="Active">Active</option>
+        <option value="Inactive">Inactive</option>
+        {/* Add more status options */}
+      </select>
+
+      {/* Render records */}
+      {filteredRecords.map(record => (
+        <div key={record.id}>
+          <p>Name: {record.name}</p>
+          <p>Category: {record.category}</p>
+          <p>Status: {record.status}</p>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export default RecordDisplay;
+
+
+
+
+
+
+import React, { useState } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import jsonData from './data.kjson';
