@@ -1,44 +1,47 @@
-import React, { useState } from 'react';
+<?php
 
-function YourComponent() {
-  const [typedText, setTypedText] = useState('');
-  // Assume you have caterizedData as your data source
+// Your URL with parameters
+$url = 'https://example.com/authenticate';
 
-  const inputHandler = (e) => {
-    setTypedText(e.target.value);
-  };
+// Parameters to send in the POST request
+$params = [
+    'param1' => 'value1',
+    'param2' => 'value2',
+    'param3' => 'value3'
+];
 
-  return (
-    <div>
-      <input
-        type="text"
-        placeholder="Search by category or title"
-        value={typedText}
-        onChange={inputHandler}
-      />
-      
-      {Object.entries(caterizedData).map(([category, items]) => {
-        const filteredItems = items.filter((item) =>
-          item.title.toLowerCase().includes(typedText.toLowerCase())
-        );
+// Convert parameters to a URL-encoded string
+$postData = http_build_query($params);
 
-        return (
-          <div key={category}>
-            <h2>{category}</h2>
-            {filteredItems.length === 0 ? (
-              <p>No data found for this category.</p>
-            ) : (
-              filteredItems.map((item) => (
-                <div key={item.id}>
-                  <img src="slider.png" alt={item.title} />
-                </div>
-              ))
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
+// Set up cURL
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, $url);
+curl_setopt($ch, CURLOPT_POST, 1);
+curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+// Execute the cURL request
+$response = curl_exec($ch);
+
+// Check for cURL errors
+if (curl_errno($ch)) {
+    echo 'cURL error: ' . curl_error($ch);
+    // Handle the error appropriately
 }
 
-export default YourComponent;
+// Close cURL session
+curl_close($ch);
+
+// Parse the response to extract the bearer token
+$data = json_decode($response, true);
+
+if (isset($data['token'])) {
+    // The bearer token is in $data['token']
+    $bearerToken = $data['token'];
+    echo 'Bearer Token: ' . $bearerToken;
+} else {
+    // Handle the case where the token is not found in the response
+    echo 'Bearer token not found in response.';
+}
+
+?>
