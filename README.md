@@ -1,47 +1,20 @@
-<?php
+use Drupal\node\NodeInterface;
 
-// Your URL with parameters
-$url = 'https://example.com/authenticate';
+// Load the node revision by its revision ID.
+$revision_id = 123; // Replace with the actual revision ID.
+$node_revision = \Drupal::entityTypeManager()->getStorage('node')->loadRevision($revision_id);
 
-// Parameters to send in the POST request
-$params = [
-    'param1' => 'value1',
-    'param2' => 'value2',
-    'param3' => 'value3'
-];
+// Check if the loaded entity is a NodeInterface.
+if ($node_revision instanceof NodeInterface) {
+  // Get the moderation state for the node revision.
+  $moderation_state = $node_revision->get('moderation_state')->target_id;
 
-// Convert parameters to a URL-encoded string
-$postData = http_build_query($params);
+  // Load the moderation state entity to get additional information if needed.
+  $moderation_state_entity = \Drupal::entityTypeManager()->getStorage('moderation_state')->load($moderation_state);
 
-// Set up cURL
-$ch = curl_init();
-curl_setopt($ch, CURLOPT_URL, $url);
-curl_setopt($ch, CURLOPT_POST, 1);
-curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-// Execute the cURL request
-$response = curl_exec($ch);
-
-// Check for cURL errors
-if (curl_errno($ch)) {
-    echo 'cURL error: ' . curl_error($ch);
-    // Handle the error appropriately
+  if ($moderation_state_entity) {
+    $moderation_state_label = $moderation_state_entity->label();
+    // You can now use $moderation_state_label or $moderation_state for your needs.
+  }
 }
 
-// Close cURL session
-curl_close($ch);
-
-// Parse the response to extract the bearer token
-$data = json_decode($response, true);
-
-if (isset($data['token'])) {
-    // The bearer token is in $data['token']
-    $bearerToken = $data['token'];
-    echo 'Bearer Token: ' . $bearerToken;
-} else {
-    // Handle the case where the token is not found in the response
-    echo 'Bearer token not found in response.';
-}
-
-?>
