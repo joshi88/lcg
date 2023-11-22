@@ -1,20 +1,26 @@
-use Drupal\node\NodeInterface;
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var form = document.getElementById("myForm");
+    var myLink = document.getElementById("myLink");
+    var anchorTagClicked = false;
 
-// Load the node revision by its revision ID.
-$revision_id = 123; // Replace with the actual revision ID.
-$node_revision = \Drupal::entityTypeManager()->getStorage('node')->loadRevision($revision_id);
+    // Add a click event listener to the anchor tag
+    myLink.addEventListener("click", function() {
+        // Set the flag to true when the link is clicked
+        anchorTagClicked = true;
+    });
 
-// Check if the loaded entity is a NodeInterface.
-if ($node_revision instanceof NodeInterface) {
-  // Get the moderation state for the node revision.
-  $moderation_state = $node_revision->get('moderation_state')->target_id;
+    form.addEventListener("submit", function(event) {
+        // Check if the anchor tag is not clicked
+        if (!anchorTagClicked) {
+            // Prevent the form from submitting
+            event.preventDefault();
 
-  // Load the moderation state entity to get additional information if needed.
-  $moderation_state_entity = \Drupal::entityTypeManager()->getStorage('moderation_state')->load($moderation_state);
-
-  if ($moderation_state_entity) {
-    $moderation_state_label = $moderation_state_entity->label();
-    // You can now use $moderation_state_label or $moderation_state for your needs.
-  }
+            // Prompt a message
+            alert("Please click on the link before submitting the form.");
+        }
+    });
+});
+</script>
 }
 
