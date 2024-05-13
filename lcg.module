@@ -1,3 +1,11 @@
+
+services:
+  your_module.queue_worker_event_subscriber:
+    class: Drupal\your_module\EventSubscriber\QueueWorkerEventSubscriber
+    arguments: ['@plugin.manager.queue_worker', '@plugin.manager.mail']
+    tags:
+      - { name: event_subscriber }
+
 // your_module/src/Event/QueueWorkerEvent.php
 
 namespace Drupal\your_module\Event;
