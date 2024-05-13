@@ -1,193 +1,38 @@
-<?php
-/**
-  *  Implements hook_permission().
-*/
+// your_module/src/EventSubscriber/QueueWorkerEventSubscriber.php
 
-function lcg_permission() {
-  	return array(
-    	'administer lcg' => array(
-      		'title' 		=> t('Administer lcg'),
-      		'description' 	=> t('User login and registration via single form'),
-    	),
-  	);
-}
+namespace Drupal\your_module\EventSubscriber;
 
-/**
-  * Implements hook_menu().
-*/
-function lcg_menu() {
-  	$items =array();
-  	$items['login-reg'] = array(
-    	'title' 			=> t('Login and Registration'),
-    	'page callback' 	=> 'drupal_get_form',
-    	'page arguments' 	=> array('lcg_registrtion'),
-    	'access callback'  	=> 'user_access',
-    	'access arguments'	=> array('access content'),
-    	'type' 				=> MENU_NORMAL_ITEM,
-  	);
- 	$items['admin/config/user-interface/lcg'] = array(
-    	'title' 			=> t('LCG options'),
-    	'page callback' 	=> 'drupal_get_form',
-    	'page arguments' 	=> array('lcg_advanceopt_form'),
-    	'access callback'  	=> 'user_access',
-    	'access arguments'	=> array('access content'),
-    	'type' 				=> MENU_NORMAL_ITEM,
-  );
-  return $items;
-}
+use Drupal\your_module\Event\QueueWorkerEvent;
+use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Drupal\Core\Queue\QueueWorkerManagerInterface;
+use Drupal\Core\Mail\MailManagerInterface;
 
+class QueueWorkerEventSubscriber implements EventSubscriberInterface {
 
-/**
-  * login and resiter function
-*/
+  protected $queueWorkerManager;
+  protected $mailer;
 
-function lcg_registrtion($form, &$form_state) {
-  	$form['lcgemail'] = array(
-    	'#title' 	=> 'Email',
-    	'#type' 	=> 'textfield',
-    	'#required' => TRUE,
-  	);
-  	$form['lcgpass'] = array(
-    	'#title' 	=> 'Password',
-    	'#type' 	=> 'password',
-    	'#required' => TRUE,
-  	);
- 	$form['submit'] = array(
-    	'#type' 	=> 'submit',
-    	'#value' 	=> t('Login'),
-  	);
-  	return $form;
-}
-/**
-  * Submit handler for registraion form
-*/
+  public function __construct(QueueWorkerManagerInterface $queueWorkerManager, MailManagerInterface $mailer) {
+    $this->queueWorkerManager = $queueWorkerManager;
+    $this->mailer = $mailer;
+  }
 
-function lcg_registrtion_submit($form, &$form_state) {
-	module_load_include('inc', 'user', 'user.pages');
-    $username = $form_state['values']['lcgemail'];
-	$password = trim($form_state['values']['lcgpass']);
-		if(user_authenticate($username,$password)) {
-			$account = user_authenticate($username,$password);
-			$account = array('uid' => $account);
-			user_login_submit(array(), $account);	
-			drupal_set_message(t('user login successfully'), 'status', FALSE);
-			}else{
-				if(!user_load_by_mail($username)) {
-					$new_user = array(
-						'name' 		=> $form_state['values']['lcgemail'],
-						'mail' 		=> $form_state['values']['lcgemail'],
-						'pass' 		=> $form_state['values']['lcgpass'],
-						'init' 		=> $form_state['values']['lcgemail'],
-						'status' 	=> 1,
-						'access' 	=> REQUEST_TIME,
-						'roles' 	=> array(),
-					);
-					$saveuser = user_save(NULL, $new_user);
-						if($saveuser) {
-							$accounts = array('uid' => $saveuser->uid);
-							user_login_submit(array(), $accounts);
-							drupal_set_message(t('user register and login successfully'), 'status', FALSE);	
-						}
-				}
-				else{
-					drupal_set_message(t('user credentials wrong!'), 'error', FALSE);
-				}
-			}
-}
+  public static function getSubscribedEvents() {
+    return [
+      QueueWorkerEvent::NAME => 'onQueueWorkerEvent',
+    ];
+  }
 
-/**
- * Form validation for email.
-*/
-function lcg_registrtion_validate($form, &$form_state) {
-  	if (!valid_email_address($form_state['values']['lcgemail'])) {
-    	form_set_error('lcgemail', t('That e-mail address is not valid.'));
-  	}
-}
+  public function onQueueWorkerEvent(QueueWorkerEvent $event) {
+    $records = $event->getRecords();
+    $body = ''; // Build your email body here.
 
-/**
- * implement hook_block_info().
-*/
+    // Send email.
+    $message = [
+      'subject' => t('New Queue Worker Records Created'),
+      'body' => $body,
+    ];
 
-function lcg_block_info(){
-	$blocks = array();
-	$blocks['logcumreg'] = array(
-		'info'=>t('Display login from registration form'),
-	);
-	return $blocks;
-}
-
-
-/**
- * implement hook_block_view() 
-*/
-
-function lcg_block_view($delta = ''){
-	$blocks = array();
-		switch ($delta) {
-			case 'logcumreg':
-			$form_id = drupal_get_form('lcg_registrtion');
-			    $blocks['subject'] = t('LCG form');
-				global $user;
-					if(!$user->uid) {
-					    $blocks['content'] = drupal_render($form_id);				
-					}else{
-						$blocks['content'] = l('logout','user/logout');
-					}  
-			break;
-		}
-	return $blocks;
-}
-
-/**
-* Advance options for lcg.
-*/
-
-function lcg_advanceopt_form($form, &$form_state) {
-
-  	$form = array();
-  	$form['selected_option']['option_selected'] = array(
-        '#type' 			=> 'radios',
-        '#title' 			=> t('Enable lcg form as a block for any region'),
-        '#options' 			=> array('checked' => 'Enable', 'unchecked' => 'Disable'),
-        '#default_value' 	=> variable_get('option_selected', 'unchecked'),
-    );
-    $form['addopt'] = array(
-	  	'#type' 		=> 'fieldset',
-	  	'#title' 		=> t('Advance Options'),
-	  	'#collapsible' 	=> TRUE,
-	  	'#collapsed' 	=> TRUE,
-    );
-    $form['addopt']['lcglabel'] = array(
-      	'#type'				=> 'textfield',
-      	'#title' 			=> t('Submit button label'),
-      	'#default_value' 	=> variable_get('lcglabel', 'send'),
-  	);
-
-	return system_settings_form($form);	
-}
-
-/**
-* implement hook_form_alter().
-*/
-
-function lcg_form_alter(&$form, &$form_state, $form_id) {
-	$submitlabel = variable_get('lcglabel');
-	if($form_id == 'lcg_registrtion'){
-		$form['submit']['#value'] = t($submitlabel);
-	}
-}
-
-/**
-* submit handler for advance options
-*/
-
-
-
-/**
-* implement hook_block_info_alte().
-*/
-function lcg_block_info_alter(&$blocks, $theme, $code_blocks){
-	if(variable_get('option_selected') == 'unchecked'){
-	 	$blocks['lcg']['logcumreg']['status'] = 0;
-	}
+    $this->mailer->mail('your_module', 'queue_worker_records', 'recipient@example.com', \Drupal::currentUser()->getPreferredLangcode(), $message);
+  }
 }
