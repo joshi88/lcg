@@ -1,3 +1,26 @@
+// your_module/src/Event/QueueWorkerEvent.php
+
+namespace Drupal\your_module\Event;
+
+use Symfony\Component\EventDispatcher\Event;
+
+class QueueWorkerEvent extends Event {
+
+  const NAME = 'your_module.queue_worker_event';
+
+  protected $records;
+
+  public function __construct(array $records) {
+    $this->records = $records;
+  }
+
+  public function getRecords() {
+    return $this->records;
+  }
+
+}
+
+
 // your_module/src/EventSubscriber/QueueWorkerEventSubscriber.php
 
 namespace Drupal\your_module\EventSubscriber;
