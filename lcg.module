@@ -1,40 +1,10 @@
-
-services:
-  your_module.queue_worker_event_subscriber:
-    class: Drupal\your_module\EventSubscriber\QueueWorkerEventSubscriber
-    arguments: ['@plugin.manager.queue_worker', '@plugin.manager.mail']
-    tags:
-      - { name: event_subscriber }
-
-// your_module/src/Event/QueueWorkerEvent.php
-
-namespace Drupal\your_module\Event;
-
-use Symfony\Component\EventDispatcher\Event;
-
-class QueueWorkerEvent extends Event {
-
-  const NAME = 'your_module.queue_worker_event';
-
-  protected $records;
-
-  public function __construct(array $records) {
-    $this->records = $records;
-  }
-
-  public function getRecords() {
-    return $this->records;
-  }
-
-}
-
-
 // your_module/src/EventSubscriber/QueueWorkerEventSubscriber.php
 
 namespace Drupal\your_module\EventSubscriber;
 
-use Drupal\your_module\Event\QueueWorkerEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\HttpKernel\KernelEvents;
+use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Drupal\Core\Queue\QueueWorkerManagerInterface;
 use Drupal\Core\Mail\MailManagerInterface;
 
@@ -50,20 +20,22 @@ class QueueWorkerEventSubscriber implements EventSubscriberInterface {
 
   public static function getSubscribedEvents() {
     return [
-      QueueWorkerEvent::NAME => 'onQueueWorkerEvent',
+      KernelEvents::REQUEST => 'onKernelRequest',
     ];
   }
 
-  public function onQueueWorkerEvent(QueueWorkerEvent $event) {
-    $records = $event->getRecords();
-    $body = ''; // Build your email body here.
+  public function onKernelRequest(RequestEvent $event) {
+    if (\Drupal::service('cron')->getLastRunTime() > REQUEST_TIME - 60 * 60 * 24) {
+      $queue_worker = $this->queueWorkerManager->createInstance('your_queue_worker_id');
+      $records = $queue_worker->getProcessedRecords();
 
-    // Send email.
-    $message = [
-      'subject' => t('New Queue Worker Records Created'),
-      'body' => $body,
-    ];
+      // Send email.
+      $message = [
+        'subject' => t('New Queue Worker Records Created'),
+        'body' => 'Debugging message: Records processed: ' . print_r($records, true),
+      ];
 
-    $this->mailer->mail('your_module', 'queue_worker_records', 'recipient@example.com', \Drupal::currentUser()->getPreferredLangcode(), $message);
+      $this->mailer->mail('your_module', 'queue_worker_records', 'recipient@example.com', \Drupal::currentUser()->getPreferredLangcode(), $message);
+    }
   }
 }
