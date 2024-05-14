@@ -16,7 +16,13 @@ function your_module_cron() {
     if ($finder->hasResults() && !$event_dispatched) {
         // Dispatch an event if the file exists and the event hasn't been dispatched yet.
         $event_dispatcher = \Drupal::service('event_dispatcher');
-        $event_dispatcher->dispatch(QueueWorkerEvent::NAME);
+        
+        // Retrieve queue worker records.
+        $queue_worker = \Drupal::service('plugin.manager.queue_worker')->createInstance('your_queue_worker_id');
+        $records = $queue_worker->getProcessedRecords();
+
+        // Dispatch the event with queue worker records.
+        $event_dispatcher->dispatch(QueueWorkerEvent::NAME, new QueueWorkerEvent($records));
 
         // Set the flag to indicate that the event has been dispatched.
         \Drupal::state()->set('your_module.event_dispatched', TRUE);
