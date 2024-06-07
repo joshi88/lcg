@@ -1,20 +1,36 @@
 /**
- * Implements hook_views_pre_render().
+ * Implements hook_views_query_alter().
  */
-function MYMODULE_views_pre_render(ViewExecutable $view) {
+function MYMODULE_views_query_alter(ViewExecutable $view, QueryPluginBase $query) {
   // Ensure this alters the correct view and display.
   if ($view->id() == 'YOUR_VIEW_ID' && $view->current_display == 'YOUR_DISPLAY_ID') {
-    $search_term = \Drupal::request()->query->get('body');
-    if ($search_term) {
-      // Loop through the results and filter based on the search term.
-      foreach ($view->result as $index => $row) {
-        if (strpos(strtolower($row->_entity->get('body')->value), strtolower($search_term)) === false) {
-          // If the search term is not found, remove this result.
-          unset($view->result[$index]);
-        }
+    // Debugging to check available query parameters.
+    \Drupal::logger('mymodule')->debug('<pre>' . print_r(\Drupal::request()->query->all(), TRUE) . '</pre>');
+
+    // Adjust the parameter names based on your filter settings.
+    $search_title = \Drupal::request()->query->get('title');
+    $search_body = \Drupal::request()->query->get('body');
+
+    if ($search_title || $search_body) {
+      $group = $query->setWhereGroup('AND');
+
+      // Join the table for the `uttarakhand` paragraph.
+      $query->addJoin('LEFT', 'paragraph__field_uttarakhand', 'uttarakhand', 'uttarakhand.entity_id = node_field_data.nid');
+
+      // Join the table for the `almora` paragraph.
+      $query->addJoin('LEFT', 'paragraph__field_almora', 'almora', 'almora.entity_id = uttarakhand.field_uttarakhand_target_id');
+
+      // Join the table for the `body` field within `almora`.
+      $query->addJoin('LEFT', 'paragraph__body', 'almora_body', 'almora_body.entity_id = almora.field_almora_target_id');
+
+      if ($search_title) {
+        // Filter by title in the node table.
+        $query->addWhere($group, 'node_field_data', 'title', '%' . $search_title . '%', 'LIKE');
       }
-      // Reindex array keys to avoid gaps.
-      $view->result = array_values($view->result);
+      if ($search_body) {
+        // Filter by body field in the `almora` paragraph.
+        $query->addWhere($group, 'almora_body', 'body_value', '%' . $search_body . '%', 'LIKE');
+      }
     }
   }
 }
