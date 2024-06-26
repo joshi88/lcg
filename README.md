@@ -1,36 +1,23 @@
-/**
- * Implements hook_views_query_alter().
- */
-function MYMODULE_views_query_alter(ViewExecutable $view, QueryPluginBase $query) {
-  // Ensure this alters the correct view and display.
-  if ($view->id() == 'YOUR_VIEW_ID' && $view->current_display == 'YOUR_DISPLAY_ID') {
-    // Debugging to check available query parameters.
-    \Drupal::logger('mymodule')->debug('<pre>' . print_r(\Drupal::request()->query->all(), TRUE) . '</pre>');
+use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\node\Entity\Node;
+use Drupal\domain\Entity\Domain;
 
-    // Adjust the parameter names based on your filter settings.
-    $search_title = \Drupal::request()->query->get('title');
-    $search_body = \Drupal::request()->query->get('body');
+// Replace 'your_domain_id' with the actual domain ID you want to fetch nodes for.
+$domain_id = 'your_domain_id'; // Replace with actual domain ID.
 
-    if ($search_title || $search_body) {
-      $group = $query->setWhereGroup('AND');
+$content_type = 'your_content_type'; // Replace with actual content type machine name.
 
-      // Join the table for the `uttarakhand` paragraph.
-      $query->addJoin('LEFT', 'paragraph__field_uttarakhand', 'uttarakhand', 'uttarakhand.entity_id = node_field_data.nid');
+// Fetch all published nodes of a specific content type and specific domain.
+$query = \Drupal::entityTypeManager()->getStorage('node')->getQuery();
+$query->condition('type', $content_type); // Filter by content type.
+$query->condition('status', Node::PUBLISHED); // Only fetch published nodes.
+$query->accessCheck(TRUE); // Apply access checking.
 
-      // Join the table for the `almora` paragraph.
-      $query->addJoin('LEFT', 'paragraph__field_almora', 'almora', 'almora.entity_id = uttarakhand.field_uttarakhand_target_id');
+// Join with domain_access table to filter nodes by domain.
+$query->join('domain_access', 'da', 'da.entity_id = n.nid');
+$query->condition('da.gid', $domain_id);
 
-      // Join the table for the `body` field within `almora`.
-      $query->addJoin('LEFT', 'paragraph__body', 'almora_body', 'almora_body.entity_id = almora.field_almora_target_id');
+$node_ids = $query->execute();
 
-      if ($search_title) {
-        // Filter by title in the node table.
-        $query->addWhere($group, 'node_field_data', 'title', '%' . $search_title . '%', 'LIKE');
-      }
-      if ($search_body) {
-        // Filter by body field in the `almora` paragraph.
-        $query->addWhere($group, 'almora_body', 'body_value', '%' . $search_body . '%', 'LIKE');
-      }
-    }
-  }
-}
+// Load nodes based on IDs.
+$nodes = \Drupal::entityTypeManager()->getStorage('node')->loadMultiple($node_ids);
