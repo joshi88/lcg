@@ -1,66 +1,78 @@
-# your_module.services.yml
+<?php
 
-services:
-  your_module.queue_worker_event_subscriber:
-    class: Drupal\your_module\EventSubscriber\QueueWorkerEventSubscriber
-    arguments: ['@plugin.manager.mail']
-    tags:
-      - { name: event_subscriber }
+namespace Drupal\domcs\Controller;
 
-  your_module.event_dispatcher:
-    class: Symfony\Component\EventDispatcher\EventDispatcher
-
-
-// your_module.module
-
-use Drupal\your_module\Event\QueueWorkerEvent;
+use Drupal\Core\Controller\ControllerBase;
+use Symfony\Component\HttpFoundation\Response;
+use Drupal\Core\Url;
+use Drupal\node\NodeInterface;
 
 /**
- * Implements hook_cron().
+ * Controller for generating the custom sitemap XML.
  */
-function your_module_cron() {
-  // Create an instance of your queue worker.
-  $queue_worker = \Drupal::service('plugin.manager.queue_worker')->createInstance('your_queue_worker_id');
+class CustomSitemapController extends ControllerBase {
+
+  /**
+   * Generates the custom sitemap XML.
+   */
+  public function generate() {
+    $output = '<?xml version="1.0" encoding="UTF-8"?>
+       <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
   
-  // Get processed records.
-  $records = $queue_worker->getProcessedRecords();
+    // Fetch all published nodes for each language.
+    $languages = \Drupal::languageManager()->getLanguages();
+    foreach ($languages as $language) {
+      // Set the current language for fetching content.
+      \Drupal::languageManager()->setConfigOverrideLanguage($language);
   
-  // Dispatch the event.
-  \Drupal::service('event_dispatcher')->dispatch(QueueWorkerEvent::NAME, new QueueWorkerEvent($records));
+      // Fetch all published nodes for the current language.
+      $nodes = \Drupal::entityTypeManager()
+        ->getStorage('node')
+        ->getQuery()
+        ->condition('status', 1)
+        ->accessCheck(TRUE) // Apply access checking
+        ->execute();
+  
+      foreach ($nodes as $node_id) {
+        $node = \Drupal\node\Entity\Node::load($node_id);
+        // Check if the node translation exists for this language.
+        if ($node->hasTranslation($language->getId())) {
+          $translated_node = $node->getTranslation($language->getId());
+          $output .= $this->generateUrlEntry($translated_node->toUrl()->setAbsolute());
+        }
+      }
+    }
+  
+  
+  
+    $output .= '</urlset>';
+  
+    $response = new Response();
+    $response->headers->set('Content-Type', 'application/xml; charset=utf-8');
+    $response->setContent($output);
+  
+    return $response;
+  }
+  
+  
+
+  /**
+   * Generates a single URL entry for the sitemap.
+   */
+  private function generateUrlEntry(Url $url) {
+    return '<url>
+              <loc>' . $url->setAbsolute()->toString() . '</loc>
+              <lastmod>' . date('c') . '</lastmod>
+              <changefreq>weekly</changefreq>
+              <priority>0.8</priority>
+            </url>';
+  }
+
 }
-
-// your_module/src/EventSubscriber/QueueWorkerEventSubscriber.php
-
-namespace Drupal\your_module\EventSubscriber;
-
-use Drupal\your_module\Event\QueueWorkerEvent;
-use Symfony\Component\EventDispatcher\EventSubscriberInterface;
-use Drupal\Core\Mail\MailManagerInterface;
-
-class QueueWorkerEventSubscriber implements EventSubscriberInterface {
-
-  protected $mailer;
-
-  public function __construct(MailManagerInterface $mailer) {
-    $this->mailer = $mailer;
-  }
-
-  public static function getSubscribedEvents() {
-    return [
-      QueueWorkerEvent::NAME => 'onQueueWorkerEvent',
-    ];
-  }
-
-  public function onQueueWorkerEvent(QueueWorkerEvent $event) {
-    $records = $event->getRecords();
-    $body = ''; // Build your email body here.
-
-    // Send email.
-    $message = [
-      'subject' => t('New Queue Worker Records Created'),
-      'body' => $body,
-    ];
-
-    $this->mailer->mail('your_module', 'queue_worker_records', 'recipient@example.com', \Drupal::currentUser()->getPreferredLangcode(), $message);
-  }
-}
+domcs.xml:
+  path: '/custom-sitemap.xml'
+  defaults:
+    _controller: '\Drupal\domcs\Controller\CustomSitemapController::generate'
+    _format: 'xml'
+  requirements:
+    _permission: 'access content'
