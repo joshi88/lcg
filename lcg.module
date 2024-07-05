@@ -1,23 +1,22 @@
 <?php
 
-namespace Drupal\domcs\Controller;
-
-use Drupal\Core\Controller\ControllerBase;
 use Symfony\Component\HttpFoundation\Response;
 use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 
-/**
- * Controller for generating the custom sitemap XML.
- */
-class CustomSitemapController extends ControllerBase {
 
-  /**
+function domcs_cron(){
+    $filename = 'public://sitemap.xml';
+    $data = generate();
+    file_put_contents($filename, $data);
+}
+
+/**
    * Generates the custom sitemap XML.
    */
-  public function generate() {
+function generate() {
     $output = '<?xml version="1.0" encoding="UTF-8"?>
-       <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
+    <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
   
     // Fetch all published nodes for each language.
     $languages = \Drupal::languageManager()->getLanguages();
@@ -38,41 +37,42 @@ class CustomSitemapController extends ControllerBase {
         // Check if the node translation exists for this language.
         if ($node->hasTranslation($language->getId())) {
           $translated_node = $node->getTranslation($language->getId());
-          $output .= $this->generateUrlEntry($translated_node->toUrl()->setAbsolute());
+          $output .= generate_url_entry($translated_node->toUrl()->setAbsolute());
         }
       }
     }
   
+    // Fetch all published taxonomy terms for each language.
+    $vocabularies = \Drupal\taxonomy\Entity\Vocabulary::loadMultiple();
+    foreach ($vocabularies as $vocabulary) {
+      $terms = \Drupal::entityTypeManager()
+        ->getStorage('taxonomy_term')
+        ->loadTree($vocabulary->id(), 0, NULL, TRUE);
   
+      foreach ($terms as $term) {
+        // Check if the term translation exists for this language.
+        if ($term->hasTranslation($language->getId())) {
+          $translated_term = $term->getTranslation($language->getId());
+          $output .= generate_url_entry($translated_term->toUrl()->setAbsolute());
+        }
+      }
+    }
   
     $output .= '</urlset>';
   
-    $response = new Response();
-    $response->headers->set('Content-Type', 'application/xml; charset=utf-8');
-    $response->setContent($output);
-  
-    return $response;
+    return $output;
   }
   
   
 
-  /**
-   * Generates a single URL entry for the sitemap.
-   */
-  private function generateUrlEntry(Url $url) {
+/**
+ * Generates a single URL entry for the sitemap.
+ */
+function generate_url_entry(Url $url) {
     return '<url>
-              <loc>' . $url->setAbsolute()->toString() . '</loc>
-              <lastmod>' . date('c') . '</lastmod>
-              <changefreq>weekly</changefreq>
-              <priority>0.8</priority>
-            </url>';
+      <loc>' . $url->setAbsolute()->toString() . '</loc>
+      <lastmod>' . date('c') . '</lastmod>
+      <changefreq>weekly</changefreq>
+      <priority>0.8</priority>
+    </url>';
   }
-
-}
-domcs.xml:
-  path: '/custom-sitemap.xml'
-  defaults:
-    _controller: '\Drupal\domcs\Controller\CustomSitemapController::generate'
-    _format: 'xml'
-  requirements:
-    _permission: 'access content'
