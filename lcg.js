@@ -1,43 +1,11 @@
-use Symfony\Component\Finder\Finder;
-use Symfony\Component\Filesystem\Filesystem;
-use Drupal\your_module\Event\QueueWorkerEvent;
+  // Fetch all menu links.
+  $menu_links = \Drupal::entityTypeManager()
+    ->getStorage('menu_link_content')
+    ->loadMultiple();
 
-function your_module_cron() {
-    $folder_path = 'path/to/folder';
-    $cron_run_time = \Drupal::time()->getRequestTime();
-
-    // Check if the event has been dispatched.
-    $event_dispatched = \Drupal::state()->get('your_module.event_dispatched', FALSE);
-
-    // Check if the file exists in the folder.
-    $finder = new Finder();
-    $finder->files()->in($folder_path);
-
-    if ($finder->hasResults() && !$event_dispatched) {
-        // Dispatch an event if the file exists and the event hasn't been dispatched yet.
-        $event_dispatcher = \Drupal::service('event_dispatcher');
-        
-        // Retrieve queue worker records.
-        $queue_worker = \Drupal::service('plugin.manager.queue_worker')->createInstance('your_queue_worker_id');
-        $records = $queue_worker->getProcessedRecords();
-
-        // Dispatch the event with queue worker records.
-        $event_dispatcher->dispatch(QueueWorkerEvent::NAME, new QueueWorkerEvent($records));
-
-        // Set the flag to indicate that the event has been dispatched.
-        \Drupal::state()->set('your_module.event_dispatched', TRUE);
+  foreach ($menu_links as $menu_link) {
+    if ($menu_link->hasTranslation($language->getId())) {
+      $translated_menu_link = $menu_link->getTranslation($language->getId());
+      $output .= generate_url_entry($translated_menu_link->toUrl()->setAbsolute());
     }
-
-    if (!$finder->hasResults() && $event_dispatched) {
-        // Reset the flag if no files are found.
-        \Drupal::state()->set('your_module.event_dispatched', FALSE);
-    }
-
-    // Remove files older than 5 minutes from the cron run.
-    foreach ($finder as $file) {
-        if ($file->getMTime() < ($cron_run_time - 300)) { // 300 seconds = 5 minutes
-            $filesystem = new Filesystem();
-            $filesystem->remove($file->getRealPath());
-        }
-    }
-}
+  }
