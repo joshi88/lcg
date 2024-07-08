@@ -1,34 +1,23 @@
-use Drupal\Core\Block\BlockBase;
 use Drupal\Core\Menu\MenuTreeParameters;
-use Drupal\Core\Menu\MenuLinkTreeInterface;
+use Drupal\Core\Menu\MenuLinkTreeInterface;  
+// Load the menu links.
+  $menu_name = 'main'; // Change this to your menu machine name
+  $menu_tree_service = \Drupal::service('menu.link_tree');
+  $parameters = new MenuTreeParameters();
+  $tree = $menu_tree_service->load($menu_name, $parameters);
 
-/**
- * Provides a 'CustomMenuBlock' block.
- *
- * @Block(
- *   id = "custom_menu_block",
- *   admin_label = @Translation("Custom Menu Block"),
- * )
- */
-class CustomMenuBlock extends BlockBase {
+  // Transform the tree using manipulators you need.
+  $manipulators = [
+    ['callable' => 'menu.default_tree_manipulators:checkAccess'],
+    ['callable' => 'menu.default_tree_manipulators:generateIndexAndSort'],
+  ];
+  $tree = $menu_tree_service->transform($tree, $manipulators);
 
-  /**
-   * {@inheritdoc}
-   */
-  public function build() {
-    $menu_name = 'main'; // Change this to your menu machine name
+  // Render the tree as a render array.
+  $menu = $menu_tree_service->build($tree);
 
-    $menu_tree = \Drupal::menuTree();
-    $parameters = new MenuTreeParameters();
-    $tree = $menu_tree->load($menu_name, $parameters);
-
-    $manipulators = [
-      ['callable' => 'menu.default_tree_manipulators:checkAccess'],
-      ['callable' => 'menu.default_tree_manipulators:generateIndexAndSort'],
-    ];
-    $tree = $menu_tree->transform($tree, $manipulators);
-    $menu = $menu_tree->build($tree);
-
-    return $menu;
+  // Now you can do something with the menu links.
+  // For example, log the titles of the menu links.
+  foreach ($tree as $element) {
+    \Drupal::logger('custom_cron_menu')->info('Menu link: @title', ['@title' => $element->link->getTitle()]);
   }
-}
