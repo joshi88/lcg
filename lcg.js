@@ -1,23 +1,34 @@
-  // Fetch all menu links for a specific domain.
-  $domain_id = 'example.com'; // Replace with your domain ID.
-  $menu_names = ['main-menu', 'footer-menu']; // Add your menu names here.
-  foreach ($menu_names as $menu_name) {
-    $menu_tree = \Drupal::menuTree();
-    $parameters = $menu_tree->getCurrentRouteMenuTreeParameters($menu_name);
+use Drupal\Core\Block\BlockBase;
+use Drupal\Core\Menu\MenuTreeParameters;
+use Drupal\Core\Menu\MenuLinkTreeInterface;
 
-    // Load the menu tree for the specified domain.
+/**
+ * Provides a 'CustomMenuBlock' block.
+ *
+ * @Block(
+ *   id = "custom_menu_block",
+ *   admin_label = @Translation("Custom Menu Block"),
+ * )
+ */
+class CustomMenuBlock extends BlockBase {
+
+  /**
+   * {@inheritdoc}
+   */
+  public function build() {
+    $menu_name = 'main'; // Change this to your menu machine name
+
+    $menu_tree = \Drupal::menuTree();
+    $parameters = new MenuTreeParameters();
     $tree = $menu_tree->load($menu_name, $parameters);
 
-    // Filter menu links by domain.
-    foreach ($tree as $element) {
-      $menu_link_content = \Drupal::entityTypeManager()->getStorage('menu_link_content')->load($element->link->getPluginId());
-      if ($menu_link_content && $menu_link_content->get('domain_access')->target_id == $domain_id) {
-        if ($element->access->isAllowed()) {
-          $link = $element->link;
-          if ($link->getUrlObject()->isRouted()) {
-            $output .= generate_url_entry($link->getUrlObject()->setAbsolute());
-          }
-        }
-      }
-    }
+    $manipulators = [
+      ['callable' => 'menu.default_tree_manipulators:checkAccess'],
+      ['callable' => 'menu.default_tree_manipulators:generateIndexAndSort'],
+    ];
+    $tree = $menu_tree->transform($tree, $manipulators);
+    $menu = $menu_tree->build($tree);
+
+    return $menu;
   }
+}
