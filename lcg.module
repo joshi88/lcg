@@ -1,78 +1,57 @@
 <?php
 
-use Symfony\Component\HttpFoundation\Response;
-use Drupal\Core\Url;
-use Drupal\node\NodeInterface;
+namespace Drupal\mymodule\EventSubscriber;
 
-
-function domcs_cron(){
-    $filename = 'public://sitemap.xml';
-    $data = generate();
-    file_put_contents($filename, $data);
-}
+use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Drupal\webform\WebformEvents;
+use Drupal\webform\WebformSubmitEmailEvent;
 
 /**
-   * Generates the custom sitemap XML.
-   */
-function generate() {
-    $output = '<?xml version="1.0" encoding="UTF-8"?>
-    <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
-  
-    // Fetch all published nodes for each language.
-    $languages = \Drupal::languageManager()->getLanguages();
-    foreach ($languages as $language) {
-      // Set the current language for fetching content.
-      \Drupal::languageManager()->setConfigOverrideLanguage($language);
-  
-      // Fetch all published nodes for the current language.
-      $nodes = \Drupal::entityTypeManager()
-        ->getStorage('node')
-        ->getQuery()
-        ->condition('status', 1)
-        ->accessCheck(TRUE) // Apply access checking
-        ->execute();
-  
-      foreach ($nodes as $node_id) {
-        $node = \Drupal\node\Entity\Node::load($node_id);
-        // Check if the node translation exists for this language.
-        if ($node->hasTranslation($language->getId())) {
-          $translated_node = $node->getTranslation($language->getId());
-          $output .= generate_url_entry($translated_node->toUrl()->setAbsolute());
-        }
-      }
-    }
-  
-    // Fetch all published taxonomy terms for each language.
-    $vocabularies = \Drupal\taxonomy\Entity\Vocabulary::loadMultiple();
-    foreach ($vocabularies as $vocabulary) {
-      $terms = \Drupal::entityTypeManager()
-        ->getStorage('taxonomy_term')
-        ->loadTree($vocabulary->id(), 0, NULL, TRUE);
-  
-      foreach ($terms as $term) {
-        // Check if the term translation exists for this language.
-        if ($term->hasTranslation($language->getId())) {
-          $translated_term = $term->getTranslation($language->getId());
-          $output .= generate_url_entry($translated_term->toUrl()->setAbsolute());
-        }
-      }
-    }
-  
-    $output .= '</urlset>';
-  
-    return $output;
-  }
-  
-  
-
-/**
- * Generates a single URL entry for the sitemap.
+ * Event Subscriber for Webform Email.
  */
-function generate_url_entry(Url $url) {
-    return '<url>
-      <loc>' . $url->setAbsolute()->toString() . '</loc>
-      <lastmod>' . date('c') . '</lastmod>
-      <changefreq>weekly</changefreq>
-      <priority>0.8</priority>
-    </url>';
+class WebformEmailAlterSubscriber implements EventSubscriberInterface {
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function getSubscribedEvents() {
+    $events[WebformEvents::EMAIL_PRE_SEND][] = ['alterEmail', 100];
+    return $events;
   }
+
+  /**
+   * Alter webform email before it's sent.
+   *
+   * @param \Drupal\webform\WebformSubmitEmailEvent $event
+   *   The webform submit email event.
+   */
+  public function alterEmail(WebformSubmitEmailEvent $event) {
+    $submission = $event->getWebformSubmission();
+    $data = $submission->getData();
+
+    // Get the values of both select boxes.
+    $select_box_1 = $data['select_box_1']; // Replace with actual field key for first select box.
+    $select_box_2 = $data['select_box_2']; // Replace with actual field key for second select box.
+
+    // Default email address.
+    $recipient_email = 'default@mail.com';
+
+    // Modify the recipient email based on the combination of select box values.
+    if ($select_box_1 === 'contact_1' && $select_box_2 === 'Sales') {
+      $recipient_email = 'sales_contact1@mail.com';
+    }
+    elseif ($select_box_1 === 'contacus' && $select_box_2 === 'Support') {
+      $recipient_email = 'support_contactus@mail.com';
+    }
+
+    // Set the recipient email.
+    $email = $event->getEmail();
+    $email['to_mail'] = $recipient_email;
+    $event->setEmail($email);
+  }
+}
+services:
+  mymodule.webform_email_alter_subscriber:
+    class: Drupal\mymodule\EventSubscriber\WebformEmailAlterSubscriber
+    tags:
+      - { name: event_subscriber }
